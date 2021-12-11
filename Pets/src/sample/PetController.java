@@ -22,10 +22,8 @@ public class PetController {
 
     public static int DeletePet(BigInteger petId) throws IOException {
         URL apiUrl = new URL("https://petstore.swagger.io/v2/pet/" + petId);
-        System.out.println(apiUrl);
         HttpURLConnection connection = getConnection(apiUrl, "DELETE");
         int statusCode = connection.getResponseCode();
-        System.out.println(statusCode);
         return statusCode;
 
     }
@@ -50,11 +48,10 @@ public class PetController {
             if (statusCode == 200) {
                 try (BufferedReader br = new BufferedReader(
                         new InputStreamReader(connection.getInputStream()))) {
-                    System.out.println("After");
-                    StringBuilder response = new StringBuilder();
-                    String responseLine = null;
-                    while ((responseLine = br.readLine()) != null) {
-                        response.append(responseLine.trim());
+                        StringBuilder response = new StringBuilder();
+                        String responseLine = null;
+                        while ((responseLine = br.readLine()) != null) {
+                            response.append(responseLine.trim());
                     }
                 }
             } else {

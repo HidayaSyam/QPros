@@ -302,7 +302,6 @@ public class Main extends Application {
             @Override
             public void changed(ObservableValue observable, String oldValue, String newValue) {
                 try {
-                    System.out.println("in box");
                     switch (newValue) {
                         case "All":
                             apiUrl = new URL("https://petstore.swagger.io/v2/pet/findByStatus?status=pending,sold,available");
