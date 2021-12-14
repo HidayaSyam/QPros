@@ -2,12 +2,8 @@ package sample;
 
 import com.google.gson.reflect.TypeToken;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.lang.reflect.Type;
-import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -16,47 +12,71 @@ import com.google.gson.Gson;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Scanner;
+import java.util.List;
 
 public class PetController {
 
-    public static int DeletePet(BigInteger petId) throws IOException {
-        URL apiUrl = new URL("https://petstore.swagger.io/v2/pet/" + petId);
-        HttpURLConnection connection = getConnection(apiUrl, "DELETE");
+    static String apiUrl="https://petstore.swagger.io/v2/pet";
+    static List<Pet> allPetData;
+
+    public static List<Pet> GetAllData(String query) {
+        try {
+            HttpURLConnection connection = getConnection("GET", query);
+            int status = connection.getResponseCode();
+            if (status == 200) {
+                String data = ConReadAllJsonData(connection);
+                allPetData = ConvertAllToPets(data);
+
+            } else {
+                System.out.println("Something wrong...! ");
+            }
+
+        } catch (Exception e) {
+            System.out.println("Error : " + e);
+        }
+        return allPetData;
+    }
+
+    public static Pet GetOnePet(String query) {
+        Pet pet = null;
+        try {
+            HttpURLConnection connection = getConnection("GETId", query);
+            int status = connection.getResponseCode();
+            if (status == 200) {
+                String data = ConReadAllJsonData(connection);
+                pet = ConvertOneToPet(data);
+            } else {
+                System.out.println("Something wrong...! ");
+            }
+
+        } catch (Exception e) {
+            System.out.println("Error Get One : " + e);
+        }
+        return pet;
+    }
+
+    public static int DeletePet(String query ) throws IOException {
+        HttpURLConnection connection =getConnection("DELETE",query);
         int statusCode = connection.getResponseCode();
         return statusCode;
 
     }
 
-    public static int AddOrUpdatePet(Pet p, String method) throws MalformedURLException {
+    public static int AddOrUpdatePet( String method, Pet p) throws MalformedURLException {
 
-        URL apiUrl = new URL("https://petstore.swagger.io/v2/pet");
-        HttpURLConnection connection = getConnection(apiUrl, method);
         int statusCode = 0;
         try {
+            HttpURLConnection connection = getConnection(method, "");
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setRequestProperty("Accept", "application/json");
+
             String jsonInputString = "{\"id\":" + p.getId() + ",\"category\": {\"id\": 0, \"name\": \"string\"  }, \"name\":\"" + p.getName() + "\",  \"photoUrls\": [  \"string\"  ],\"tags\": [  {  \"id\": 0,   \"name\": \"string\"  }  ], \"status\": \"" + p.getStatus() + "\"}";
             try (OutputStream os = connection.getOutputStream()) {
                 byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
                 os.write(input, 0, input.length);
             }
-
             statusCode = connection.getResponseCode();
-
-            if (statusCode == 200) {
-                try (BufferedReader br = new BufferedReader(
-                        new InputStreamReader(connection.getInputStream()))) {
-                        StringBuilder response = new StringBuilder();
-                        String responseLine = null;
-                        while ((responseLine = br.readLine()) != null) {
-                            response.append(responseLine.trim());
-                    }
-                }
-            } else {
-                System.out.println("something went wrong");
-            }
 
         } catch (MalformedURLException e) {
             e.printStackTrace();
@@ -71,18 +91,45 @@ public class PetController {
         String[] arr = {"available", "pending", "sold"};
         ArrayList<Status> statusList = new ArrayList<>();
         for (int i = 0; i < arr.length; i++) {
-            URL storeUrl = new URL("https://petstore.swagger.io/v2/pet/findByStatus?status=" + arr[i]);
-            HttpURLConnection connection = getConnection(storeUrl, "GET");
-            String statusData = ReadAllJsonData(storeUrl);
+            HttpURLConnection connection = getConnection("GET", arr[i]);
+            String statusData = ConReadAllJsonData(connection);
             Status status = new Status(ConvertAllToPets(statusData).size(), arr[i]);
             statusList.add(status);
         }
         return statusList;
     }
 
-    public static HttpURLConnection getConnection(URL url, String method) {
+    public static void GenerateUrl(String method,String query){
+        switch (method){
+            case "GET":
+                if (query=="All")
+                    apiUrl= "https://petstore.swagger.io/v2/pet/findByStatus?status=available,sold,pending";
+                else
+                    apiUrl= "https://petstore.swagger.io/v2/pet/findByStatus?status="+query;
+                break;
+            case "DELETE":
+            case "GETId":
+                apiUrl= "https://petstore.swagger.io/v2/pet/"+Integer.parseInt(query);
+                break;
+            case "POST":
+            case "PUT":
+                apiUrl= "https://petstore.swagger.io/v2/pet";
+                break;
+
+        }
+    }
+
+    public static HttpURLConnection getConnection( String method ,String query) {
         HttpURLConnection connection = null;
+
+        GenerateUrl(method,query);
+
+        if (method=="GETId"){
+            method="GET";
+        }
+
         try {
+            URL url= new URL(apiUrl);
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod(method);
         } catch (MalformedURLException e) {
@@ -93,11 +140,13 @@ public class PetController {
         return connection;
     }
 
-    public static String ReadAllJsonData(URL url) throws IOException {
+    public static String ConReadAllJsonData(HttpURLConnection connection) throws IOException {
         String inline = "";
-        Scanner scanner = new Scanner(url.openStream());
-        while (scanner.hasNext()) {
-            inline += scanner.nextLine();
+        BufferedReader br = new BufferedReader(new InputStreamReader (connection.getInputStream()));
+        String i;
+        while ((i = br.readLine()) != null)
+        {
+            inline+=i;
         }
         return inline;
     }

@@ -67,17 +67,10 @@ public class Main extends Application {
     GridPane gridPaneAddNew;
     GridPane gridPaneUpdate;
     PieChart pieChart;
-    static URL apiUrl;
-
-    static {
-        try {
-            apiUrl = new URL("https://petstore.swagger.io/v2/pet/findByStatus?status=available,sold,pending");
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
-    }
-
     static List<Pet> allPetData;
+
+
+
 
     @Override
     public void start(Stage primaryStage) throws Exception {
@@ -175,8 +168,7 @@ public class Main extends Application {
                         String name = txtUpdatePetName.getText();
                         String status = comboBoxUpdate.getValue().toString();
 
-                        Pet pet1 = new Pet(id, name, status);
-                        statusCode = PetController.DeletePet(pet1.getId());
+                        statusCode = PetController.DeletePet(txtUpdatePetId.getText());
 
                         if (statusCode == 200) {
                             Alert a = new Alert(Alert.AlertType.INFORMATION, "Pet Deleted successfully :) ", ButtonType.OK);
@@ -184,7 +176,7 @@ public class Main extends Application {
                             txtUpdatePetId.setText("");
                             txtUpdatePetName.setText("");
                             comboBoxUpdate.setValue("available");
-                            GetAllData("GET");
+                            PetController.GetAllData(comboBoxStatus.getValue().toString());
                             FillTableView();
                         } else {
                             Alert a = new Alert(Alert.AlertType.ERROR, "Failed to Delete try again  ! ", ButtonType.OK);
@@ -215,13 +207,13 @@ public class Main extends Application {
                         String name = txtUpdatePetName.getText();
                         String status = comboBoxUpdate.getValue().toString();
 
-                        Pet pet1 = new Pet(id, name, status);
-                        statusCode = PetController.AddOrUpdatePet(pet1, "PUT");
+                        Pet updatedPet = new Pet(id, name, status);
+                        statusCode = PetController.AddOrUpdatePet("PUT",updatedPet);
 
                         if (statusCode == 200) {
                             Alert a = new Alert(Alert.AlertType.INFORMATION, "Pet Updated successfully :) ", ButtonType.OK);
                             a.show();
-                            GetAllData("GET");
+                            PetController.GetAllData(comboBoxStatus.getValue().toString());
                             FillTableView();
                         }
                     } else {
@@ -238,15 +230,10 @@ public class Main extends Application {
         btnSearch.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                int statusCode = 0;
-                try {
-                    apiUrl = new URL("https://petstore.swagger.io/v2/pet/" + Integer.parseInt(txtSearchId.getText()));
-                    System.out.println(apiUrl);
-                } catch (MalformedURLException e) {
-                    e.printStackTrace();
-                }
-                statusCode = GetOnePet("GET");
-                if (statusCode == 200) {
+                pet = PetController.GetOnePet(txtSearchId.getText());
+                allPetData= new ArrayList<Pet>();
+                allPetData.add(pet);
+                if (pet != null) {
                     try {
                         FillTableView();
                     } catch (MalformedURLException e) {
@@ -273,8 +260,8 @@ public class Main extends Application {
                         String name = txtPetName.getText();
                         String status = comboBoxNewStatus.getValue().toString();
 
-                        Pet pet1 = new Pet(id, name, status);
-                        statusCode = PetController.AddOrUpdatePet(pet1, "POST");
+                        Pet newPet = new Pet(id, name, status);
+                        statusCode = PetController.AddOrUpdatePet("POST",newPet);
 
                         if (statusCode == 200) {
                             Alert a = new Alert(Alert.AlertType.INFORMATION, "Pet added successfully :) ", ButtonType.OK);
@@ -283,7 +270,7 @@ public class Main extends Application {
                             txtPetName.setText("");
                             comboBoxNewStatus.setValue("available");
                             comboBoxStatus.setValue("All");
-                            GetAllData("GET");
+                            PetController.GetAllData(comboBoxStatus.getValue().toString());
                             FillTableView();
                         }
                     } else {
@@ -301,20 +288,8 @@ public class Main extends Application {
         comboBoxStatus.valueProperty().addListener(new ChangeListener<String>() {
             @Override
             public void changed(ObservableValue observable, String oldValue, String newValue) {
-                try {
-                    switch (newValue) {
-                        case "All":
-                            apiUrl = new URL("https://petstore.swagger.io/v2/pet/findByStatus?status=pending,sold,available");
-                            break;
-                        default:
-                            apiUrl = new URL("https://petstore.swagger.io/v2/pet/findByStatus?status=" + newValue);
-
-                    }
-                } catch (MalformedURLException e) {
-                    e.printStackTrace();
-                }
                 txtSearchId.setText("");
-                GetAllData("GET");
+                allPetData= PetController.GetAllData(comboBoxStatus.getValue().toString());
                 try {
                     FillTableView();
                 } catch (MalformedURLException e) {
@@ -326,16 +301,14 @@ public class Main extends Application {
         tabPane.getSelectionModel().selectedIndexProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> ov, Number oldValue, Number newValue) {
-                if (newValue.equals(0)) {
-                    try {
-                        apiUrl = new URL("https://petstore.swagger.io/v2/pet/findByStatus?status=available,sold,pending");
-                        GetAllData("GET");
-                        comboBoxStatus.setValue("All");
-                        FillTableView();
-                    } catch (MalformedURLException e) {
-                        e.printStackTrace();
-                    }
-                } else if (newValue.equals(2)) {
+
+                comboBoxStatus.setValue("All");
+                txtUpdatePetName.setText("");
+                txtUpdatePetId.setText("");
+
+
+
+                if (newValue.equals(2)) {
                     if (tablePetsData.getSelectionModel().getSelectedItem() != null) {
                         Object selectedItem = tablePetsData.getSelectionModel().getSelectedItem();
                         selectedPet = (Pet) selectedItem;
@@ -352,6 +325,13 @@ public class Main extends Application {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+                }
+
+                try {
+                    PetController.GetAllData(comboBoxStatus.getValue().toString());
+                    FillTableView();
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
                 }
             }
         });
@@ -452,13 +432,14 @@ public class Main extends Application {
     private void FillTableView() throws MalformedURLException {
 
         tablePetsData.getItems().clear();
-        if (allPetData == null) {
-            tablePetsData.getItems().add(pet);
-        } else {
+//        if (allPetData == null) {
+//            tablePetsData.getItems().add(pet);
+//        } else {
+        System.out.println(allPetData.size());
             for (int i = 0; i < allPetData.size(); i++) {
                 tablePetsData.getItems().add(allPetData.get(i));
             }
-        }
+//        }
 
 
     }
@@ -542,47 +523,12 @@ public class Main extends Application {
 
     }
 
-    private static int GetOnePet(String method) {
-        int status = 0;
-        try {
 
-            HttpURLConnection connection = PetController.getConnection(apiUrl, method);
-            status = connection.getResponseCode();
-            if (status == 200) {
-                String data = PetController.ReadAllJsonData(apiUrl);
-                pet = PetController.ConvertOneToPet(data);
-                allPetData = null;
 
-            } else {
-                System.out.println("Something wrong...! ");
-            }
 
-        } catch (Exception e) {
-            System.out.println("Error Get One : " + e);
-        }
-        return status;
-    }
-
-    private static void GetAllData(String method) {
-        try {
-
-            HttpURLConnection connection = PetController.getConnection(apiUrl, method);
-            int status = connection.getResponseCode();
-            if (status == 200) {
-                String data = PetController.ReadAllJsonData(apiUrl);
-                allPetData = PetController.ConvertAllToPets(data);
-
-            } else {
-                System.out.println("Something wrong...! ");
-            }
-
-        } catch (Exception e) {
-            System.out.println("Error : " + e);
-        }
-    }
 
     public static void main(String[] args) throws IOException {
-        GetAllData("GET");
+        PetController.GetAllData("All");
         PetController.getDashboardData();
         launch(args);
     }
